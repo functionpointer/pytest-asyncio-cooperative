@@ -299,3 +299,51 @@ def test_prefer_user_fixture_over_plugin_fixture(testdir):
     result = testdir.runpytest()
 
     result.assert_outcomes(passed=1)
+
+
+def test_autouse(pytester):
+    pytester.makepyfile(
+        """
+        import pytest
+
+
+        @pytest.fixture(autouse=True)
+        async def error_fixture():
+            raise ValueError()
+              
+        @pytest.mark.asyncio_cooperative      
+        async def test_cooperative(error_fixture):
+            assert True
+    """
+    )
+
+    result = pytester.runpytest()
+
+    result.assert_outcomes(errors=1)
+
+def test_same_dir(pytester):
+    pytester.makepyfile(
+        """
+        import pytest
+
+
+        @pytest.fixture()
+        def sync_dir_fixture(tmp_path):
+            yield tmp_path
+      
+        def test_sync(sync_dir_fixture, tmp_path):
+            assert tmp_path == sync_dir_fixture
+
+        @pytest.fixture()
+        async def async_dir_fixture(tmp_path):
+            yield tmp_path
+
+        @pytest.mark.asyncio_cooperative      
+        async def test_cooperative(async_dir_fixture, tmp_path):
+            assert tmp_path == async_dir_fixture
+    """
+    )
+
+    result = pytester.runpytest()
+
+    result.assert_outcomes(passed=2)
